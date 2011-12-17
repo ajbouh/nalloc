@@ -10,14 +10,14 @@ Original author: adamb
 
 Contributors:
 
-* Tsumobi, Inc
+* The Nalloc Authors
 
 License
 -------
 
 (The MIT License)
 
-Copyright (c) 2011 Tsumobi, Inc
+Copyright (c) 2011 The Nalloc Authors
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
