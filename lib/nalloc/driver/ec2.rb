@@ -1,6 +1,8 @@
 require 'fog'
 require 'digest/sha2'
 
+require Nalloc.libpath('nalloc/node')
+
 class Nalloc::Driver::Ec2 < Nalloc::Driver
   def initialize
     @compute = ::Fog::Compute.new(:provider => 'AWS')
