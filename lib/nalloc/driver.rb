@@ -10,7 +10,11 @@ class Nalloc::Driver
     require Nalloc.libpath("nalloc/driver/#{name}")
     class_name = name.split('_').map{ |s| s.capitalize }.join
 
-    self.const_get(class_name).new
+    driver_class = self.const_get(class_name)
+    Nalloc.trace_instance_method(driver_class, :destroy_cluster,
+        phase: 'destruction')
+
+    driver_class.new
   end
 
   # Recreate instance from driver details stored in cluster.
@@ -36,38 +40,40 @@ class Nalloc::Driver
       raise "#{options[:destroy].inspect} isn't valid for :destroy."
     end
 
-    region_done = trace_phase('allocation')
     start = Time.now
     error = true
     cluster_id = (0...32).map{ ('a'..'z').to_a[rand(26)] }.join
 
-    nodes = {}
+    cluster = trace_phase('allocation') do
+      nodes = {}
 
-    # Start allocating all nodes, then finish them one-by-one.
-    driver.start_allocating_nodes(cluster_id, specs).each do |name, pending|
-      nodes[name] = pending.call
-    end
+      # Start allocating all nodes, then finish them one-by-one.
+      driver.start_allocating_nodes(cluster_id, specs).each do |name, pending|
+        Nalloc.trace(node: name, operation: 'waiting for node to be ready') do
+          nodes[name] = pending.call
+        end
+      end
 
-    finish = Time.now
-    cluster = {
-      'convention' => 1,
-      'identity' => cluster_id,
-      # NOTE 12/14/2011 Since we're just storing name here, we don't need a
-      # whole hash. At some point in the future, increment the convention and
-      # stop using a whole hash. Consider supporting the old convention for a
-      # reasonable period of time.
-      'driver' => {
-        'name' => driver.name
-      },
-      'nodes' => nodes,
-      'allocation' => {
-        'timestamp' => start.to_s,
-        'utc' => start.to_i,
-        'host' => `hostname`.chomp,
-        'duration' => (finish - start)
+      finish = Time.now
+      {
+        'convention' => 1,
+        'identity' => cluster_id,
+        # NOTE 12/14/2011 Since we're just storing name here, we don't need a
+        # whole hash. At some point in the future, increment the convention and
+        # stop using a whole hash. Consider supporting the old convention for a
+        # reasonable period of time.
+        'driver' => {
+          'name' => driver.name
+        },
+        'nodes' => nodes,
+        'allocation' => {
+          'timestamp' => start.to_s,
+          'utc' => start.to_i,
+          'host' => `hostname`.chomp,
+          'duration' => (finish - start)
+        }
       }
-    }
-    region_done.call
+    end
 
     # If a cluster_path is specified, save the cluster
     cluster_json = cluster.to_json
@@ -91,9 +97,6 @@ class Nalloc::Driver
 
     return result
   ensure
-    # Close a region if needed
-    region_done.call if region_done
-
     # Reset env var
     ENV['NALLOC_CLUSTER'] = previous_cluster_json if previous_cluster_json
 
@@ -115,15 +118,12 @@ class Nalloc::Driver
     end
 
     if cluster_id and destroy
-      trace_phase('destruction') do
-
-        # Attempt to destroy the cluster.  If we're destroying because an
-        # exception was raised above, just log any exceptions destroy_cluster
-        # raises.
-        log_message = error ? "Couldn't destroy #{cluster_id}" : nil
-        Nalloc::Caution.attempt(log_message) do
-          driver.destroy_cluster(cluster_id)
-        end
+      # Attempt to destroy the cluster.  If we're destroying because an
+      # exception was raised above, just log any exceptions destroy_cluster
+      # raises.
+      log_message = error ? "Couldn't destroy #{cluster_id}" : nil
+      Nalloc::Caution.attempt(log_message) do
+        driver.destroy_cluster(cluster_id)
       end
     end
   end

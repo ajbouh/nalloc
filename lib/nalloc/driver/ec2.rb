@@ -85,57 +85,55 @@ class Nalloc::Driver::Ec2 < Nalloc::Driver
     end
 
     return lambda do
-      trace_node(name) do
-        trace_op('waiting for instance') do
-          # Wait until machine is up.
-          server.wait_for { server.ready? }
-        end
-
-        volume_id = nil
-        volume_device = nil
-        if snapshot_id = spec[:snapshot_id]
-          snapshot = @compute.snapshots.get(snapshot_id)
-          volume_device = "/dev/sdh"
-          volume = @compute.volumes.new(
-              :snapshot_id => snapshot_id,
-              :server => server,
-              :availability_zone => server.availability_zone,
-              :size => snapshot.volume_size,
-              :device => volume_device,
-              # below doesn't actually work unfortunately...
-              :delete_on_termination => true)
-          volume.save
-          volume_id = volume.id
-
-          volume.wait_for { volume.state == "in-use" }
-        end
-
-        trace_op('configuring private key') do
-          server.setup(:key_data => [server.private_key])
-        end
-
-        public_host_key = ""
-        trace_op('scanning public host key') do
-          public_host_key = Nalloc::Node.ssh_public_host_key(
-              server.public_ip_address)
-        end
-
-        {
-          "identity" => server.identity,
-          "system_identity" => server.image_id,
-          "public_ip_address" => server.public_ip_address,
-          "private_ip_address" => server.private_ip_address,
-          "ssh" => {
-            "user" => server.username,
-            "private_key_name" => ssh_key_name,
-            "public_host_key" => public_host_key
-          },
-          "ec2" => {
-            "volume_id" => volume_id,
-            "volume_device" => volume_device
-          }
-        }
+      trace_op('waiting for instance') do
+        # Wait until machine is up.
+        server.wait_for { server.ready? }
       end
+
+      volume_id = nil
+      volume_device = nil
+      if snapshot_id = spec[:snapshot_id]
+        snapshot = @compute.snapshots.get(snapshot_id)
+        volume_device = "/dev/sdh"
+        volume = @compute.volumes.new(
+            :snapshot_id => snapshot_id,
+            :server => server,
+            :availability_zone => server.availability_zone,
+            :size => snapshot.volume_size,
+            :device => volume_device,
+            # below doesn't actually work unfortunately...
+            :delete_on_termination => true)
+        volume.save
+        volume_id = volume.id
+
+        volume.wait_for { volume.state == "in-use" }
+      end
+
+      trace_op('configuring private key') do
+        server.setup(:key_data => [server.private_key])
+      end
+
+      public_host_key = ""
+      trace_op('scanning public host key') do
+        public_host_key = Nalloc::Node.ssh_public_host_key(
+            server.public_ip_address)
+      end
+
+      {
+        "identity" => server.identity,
+        "system_identity" => server.image_id,
+        "public_ip_address" => server.public_ip_address,
+        "private_ip_address" => server.private_ip_address,
+        "ssh" => {
+          "user" => server.username,
+          "private_key_name" => ssh_key_name,
+          "public_host_key" => public_host_key
+        },
+        "ec2" => {
+          "volume_id" => volume_id,
+          "volume_device" => volume_device
+        }
+      }
     end
   end
 

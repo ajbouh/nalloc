@@ -29,7 +29,24 @@ module Nalloc
     return rv
   end
 
+  # HACK(adamb) Is there a better way to do this?
+  require libpath('nalloc/console')
+  CONSOLE = Nalloc::Console.new($stderr)
+
   def self.trace(h, &b)
-    Trace::Writer.region(h, &b)
+    CONSOLE.update(h) do
+      Trace::Writer.region(h, &b)
+    end
+  end
+
+  # Update the trace with the given Hash for the duration of the indicated
+  # instance method.
+  def self.trace_instance_method(clazz, name, h)
+    method = clazz.instance_method(name)
+    clazz.send(:define_method, name) do |*args, &b|
+      Nalloc.trace(h) do
+        method.bind(self).call(*args, &b)
+      end
+    end
   end
 end  # module Nalloc
