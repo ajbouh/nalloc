@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+
+require File.expand_path(
+    File.join(File.dirname(__FILE__), %w[.. lib nalloc.rb]))
+
+require Nalloc.libpath('nalloc/cli')
+require Nalloc.libpath('nalloc/node')
+
+cluster_opt = Nalloc::Cli::ClusterOption.new
+
+opts = OptionParser.new do |opts|
+  opts.banner = "Usage: nalloc-ssh [options] node [command ...]"
+  cluster_opt.parser = opts
+end
+opts.parse!(ARGV)
+
+node = Nalloc::Node.find_in_cluster(cluster_opt.cluster, ARGV[0])
+node.become_ssh_session(*ARGV[1..-1])

@@ -1,0 +1,101 @@
+#!/usr/bin/env ruby
+
+require File.expand_path(
+    File.join(File.dirname(__FILE__), %w[.. lib nalloc.rb]))
+
+require Nalloc.libpath('nalloc/driver')
+
+require 'optparse'
+require 'json'
+
+driver_name = nil
+specs = {}
+last_node_name = nil
+last_spec = nil
+destroy = nil
+cluster_path = "-"
+overwrite = false
+
+command = OptionParser.new do |opts|
+  opts.banner = "\
+Usage: nalloc-init [options]
+       nalloc-init [options] [--] command ...
+
+If command is given, PATH and NALLOC_CLUSTER are set and the command is run.
+In this case, --destroy is assumed.
+
+Options:"
+
+  opts.on("--driver DRIVER", ["virtual_box", "ec2"],
+      "Specify driver to use for allocation") do |name|
+    driver_name = name
+  end
+
+  opts.on("--node NAME", "Allocate a node called NAME") do |name|
+    raise "More than one node with name: #{name}" if specs[name]
+    last_node_name = name
+    last_spec = {}
+    specs[last_node_name] = last_spec
+  end
+
+  opts.on("--node-option K=V", "Set a driver-specific node option") do |pair|
+    unless last_spec
+      raise "--node-option #{pair} must be preceded by --node NAME"
+    end
+    if /^([^=]+)=(.+)$/ =~ pair
+      last_spec[$1.to_sym] = $2
+    else
+      raise "Could not understand --node-option #{pair}"
+    end
+  end
+
+  opts.on("--[no-]destroy",
+      "Specify destroy policy:",
+      "  --destroy destroys nodes on exit",
+      "  --no-destroy only destroys nodes on error") do |b|
+    destroy = b ? :always : :on_error
+  end
+
+  opts.on("--save-cluster PATH",
+      "Write cluster to PATH, implies --no-destroy") do |path|
+    cluster_path = path
+    destroy = :on_error
+  end
+
+  opts.on("--[no-]overwrite", "Overwrite paths if they exist") do |b|
+    overwrite = b
+  end
+end.parse(ARGV)
+
+unless command.empty?
+  destroy ||= :always
+end
+
+
+# Validate options
+if cluster_path
+  dirname = File.dirname(cluster_path)
+  raise "Not a valid directory: #{dirname}" unless File.directory?(dirname)
+
+  if File.exist?(cluster_path) and not overwrite
+    raise "File exists and --overwrite not specified"
+  end
+end
+
+raise "--driver not specified" unless driver_name
+
+driver = Nalloc::Driver.create(driver_name)
+
+Nalloc::Driver.allocate_cluster(driver, specs, :destroy => destroy,
+    :cluster_path => cluster_path) do |cluster|
+
+  unless command.empty?
+    bin = Nalloc.path('bin')
+    system({ "PATH" => "#{bin}:#{ENV["PATH"]}" }, *command)
+
+    # If command didn't succeed, pass along exitstatus.
+    exit($?.exitstatus) unless $?.success?
+  end
+end
+
+exit(0)

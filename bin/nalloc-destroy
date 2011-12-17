@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+
+require File.expand_path(
+    File.join(File.dirname(__FILE__), %w[.. lib nalloc.rb]))
+
+require Nalloc.libpath('nalloc/cli')
+require Nalloc.libpath('nalloc/driver')
+
+cluster_opt = Nalloc::Cli::ClusterOption.new
+
+opts = OptionParser.new do |opts|
+  opts.banner = "Usage: nalloc-destroy [options]"
+  cluster_opt.parser = opts
+end
+opts.parse!(ARGV)
+
+cluster = cluster_opt.cluster
+driver = Nalloc::Driver.recreate(cluster['driver'])
+driver.destroy_cluster(cluster['identity'])

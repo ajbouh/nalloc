@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+
+require File.expand_path(
+    File.join(File.dirname(__FILE__), %w[.. lib nalloc.rb]))
+
+require Nalloc.libpath('nalloc/cli')
+require Nalloc.libpath('nalloc/node')
+
+cluster_opt = Nalloc::Cli::ClusterOption.new
+
+opts = OptionParser.new do |opts|
+  opts.banner = "Usage: nalloc-download node remote-src local-dest"
+  cluster_opt.parser = opts
+end
+opts.parse!(ARGV)
+
+unless ARGV.length == 3
+  $stderr.puts(opts)
+  exit 1
+end
+
+node_name, remote_src, local_dest = ARGV
+node = Nalloc::Node.find_in_cluster(cluster_opt.cluster, node_name)
+
+node.download(remote_src, local_dest)
