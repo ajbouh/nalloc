@@ -7,14 +7,16 @@ class Nalloc::Driver
   # Create an instance of the driver with the given name.
   def self.create(name)
     raise "name can't be nil" unless name
-    require Nalloc.libpath("nalloc/driver/#{name}")
     class_name = name.split('_').map{ |s| s.capitalize }.join
 
-    driver_class = self.const_get(class_name)
-    Nalloc.trace_instance_method(driver_class, :destroy_cluster,
-        phase: 'destruction')
+    # Only instrument the specified driver class once.
+    # NOTE This assumes that drivers will only be loaded via this code path.
+    if require(Nalloc.libpath("nalloc/driver/#{name}"))
+      Nalloc.trace_instance_method(const_get(class_name), :destroy_cluster,
+          phase: 'destruction')
+    end
 
-    driver_class.new
+    self.const_get(class_name).new
   end
 
   # Recreate instance from driver details stored in cluster.
