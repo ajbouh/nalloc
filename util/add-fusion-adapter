@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+#`-*- mode: ruby; -*-
+
+$LOAD_PATH.unshift(File.expand_path("../lib", File.dirname(__FILE__)))
+
+require 'optparse'
+
+require 'nalloc/fusion_support/networking_manipulator'
+
+networking_path = nil
+opt_parser = OptionParser.new do |op|
+  op.banner = <<-EOT
+Usage: add-fusion-adapter [opts] [0-9] [subnet] [netmask]
+
+Installs a dedicated network adapter for nalloc.
+
+Options:
+EOT
+
+  op.on("-n", "--net-config-path [PATH]", "Path to networking conf") do |path|
+    networking_path = path
+  end
+end
+
+unless Process.uid == 0
+  abort "ERROR: You must be root"
+end
+
+opt_parser.parse!(ARGV)
+unless ARGV.length == 3
+  puts "ERROR: Incorrect number of arguments"
+  puts opt_parser.help
+  exit 1
+end
+adapter_index, subnet, netmask = ARGV
+
+unless adapter_index =~ /^[0-9]$/
+  abort "ERROR: Adapter index must be in [0, 9]"
+end
+
+begin
+  puts "Adding adapter #{adapter_index}"
+  net_manip = Nalloc::FusionSupport::NetworkingManipulator.new(networking_path)
+  net_manip.add_adapter(adapter_index, subnet, netmask)
+  puts "Done. Please restart Fusion."
+rescue => e
+  abort "ERROR: #{e}"
+end

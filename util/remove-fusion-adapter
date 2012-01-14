@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+#`-*- mode: ruby; -*-
+
+$LOAD_PATH.unshift(File.expand_path("../lib", File.dirname(__FILE__)))
+
+require 'optparse'
+
+require 'nalloc/fusion_support/networking_manipulator'
+
+networking_path = nil
+
+opt_parser = OptionParser.new do |op|
+  op.banner = <<-EOT
+Usage: remove-fusion-adapters [opts] [adapter]
+
+Uninstalls a network adapter added by 'add-fusion-adapter'
+
+Options:
+EOT
+
+  op.on("-n", "--net-config-path [PATH]", "Path to networking conf") do |path|
+    networking_path = path
+  end
+end
+
+unless Process.uid == 0
+  abort "ERROR: You must be root"
+end
+
+opt_parser.parse!(ARGV)
+unless ARGV.length == 1
+  puts "ERROR: Incorrect number of arguments"
+  puts opt_parser.help
+  exit 1
+end
+adapter_index = ARGV[0]
+
+begin
+  net_manip = Nalloc::FusionSupport::NetworkingManipulator.new(networking_path)
+  if net_manip.remove_adapter(adapter_index)
+    puts "Done. Please restart Fusion."
+  else
+    puts "Adapter #{adapter_index} doesn't exist"
+  end
+rescue => e
+  abort "ERROR: #{e}"
+end
+

@@ -1,4 +1,5 @@
 require 'digest/sha1'
+require 'timeout'
 
 require Nalloc.libpath('nalloc/io')
 require Nalloc.libpath('nalloc/node')
