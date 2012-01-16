@@ -79,25 +79,15 @@ class Nalloc::FusionSupport::NetworkingManipulator
   def remove_adapter(index)
     atomically_replace_file(@config_path) do |tmpfile|
       adapter_found  = false
-      adapter_tagged = false
 
       IO.readlines(@config_path).each do |line|
         case line
         when /^answer VNET_#{index}/
           adapter_found = true
           next
-        when /^# NALLOC_ADAPTER #{index}/
-          adapter_tagged = true
-          next
         else
           tmpfile.write(line)
         end
-      end
-
-      if adapter_found && !adapter_tagged
-        err = "Adapter #{index} doesn't appear to have been added by us, "
-        err += "refusing to remove."
-        raise err
       end
 
       adapter_found
