@@ -8,17 +8,16 @@ require 'optparse'
 require 'nalloc/fusion_support/networking_manipulator'
 
 networking_path = nil
-
 opt_parser = OptionParser.new do |op|
   op.banner = <<-EOT
-Usage: remove-fusion-adapters [opts] [adapter]
+Usage: add-fusion-adapters [opts] [[0-99] [subnet] [netmask]]+
 
-Uninstalls a network adapter added by 'add-fusion-adapter'
+Installs a dedicated network adapter for nalloc.
 
 Options:
 EOT
 
-  op.on("-n", "--net-config-path [PATH]", "Path to networking conf") do |path|
+  op.on("-c", "--config-path [PATH]", "Path to networking conf") do |path|
     networking_path = path
   end
 end
@@ -28,21 +27,29 @@ unless Process.uid == 0
 end
 
 opt_parser.parse!(ARGV)
-unless ARGV.length == 1
+unless (ARGV.length > 0) && ((ARGV.length % 3) == 0)
   puts "ERROR: Incorrect number of arguments"
   puts opt_parser.help
   exit 1
 end
-adapter_index = ARGV[0]
+
+adapters = {}
+ii = 0
+while ii < ARGV.length
+  adapter = Integer(ARGV[ii])
+  raise "Adapters must be in [0, 99]" unless (0..99).include?(adapter)
+  adapters[adapter] = {
+    :subnet  => ARGV[ii + 1],
+    :netmask => ARGV[ii + 2],
+  }
+  ii += 3
+end
 
 begin
+  puts "Adding adapter(s) #{adapters.keys.join(', ')}"
   net_manip = Nalloc::FusionSupport::NetworkingManipulator.new(networking_path)
-  if net_manip.remove_adapter(adapter_index)
-    puts "Done. Please restart Fusion."
-  else
-    puts "Adapter #{adapter_index} doesn't exist"
-  end
+  net_manip.add_adapters(adapters)
+  puts "Done. Please restart Fusion."
 rescue => e
   abort "ERROR: #{e}"
 end
-

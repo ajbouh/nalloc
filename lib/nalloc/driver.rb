@@ -1,4 +1,6 @@
 require Nalloc.libpath('nalloc/caution')
+require Nalloc.libpath('nalloc/io')
+
 require 'json'
 
 class Nalloc::Driver

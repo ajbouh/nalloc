@@ -12,89 +12,125 @@ end
 # future-proof).
 class Nalloc::FusionSupport::NetworkingManipulator
   DEFAULT_NETWORKING_PATH = "/Library/Preferences/VMware Fusion/networking"
+  ALL_ADAPTERS = 0.upto(99).to_a
 
   # @param  [String]  path  Path to the networking config
   def initialize(path=nil)
     @config_path = path || DEFAULT_NETWORKING_PATH
   end
 
-  # Returns an adapter that is not currently in use
+  # Returns all adapters that are not currently in use
   #
-  # @return [Integer]  Adapter index on success
-  # @return nil        If there are no free adapters
-  def get_free_adapter
-    free_adapters = Set.new(0.upto(9).map {|i| i })
+  # @return [Array]  Adapter ids
+  def get_free_adapters
+    free_adapters = ALL_ADAPTERS.dup
 
     IO.readlines(@config_path).each do |line|
-      if line =~ /^answer VNET_(\d)/
-        free_adapters.delete(Integer($1))
+      if adapter = parse_adapter_id(line)
+        free_adapters.delete(adapter)
       end
     end
 
-    free_adapters.to_a.sort.first
+    free_adapters.to_a.sort
   end
 
-  # Adds an adapter to the specified config and tags it as being added
-  # by nalloc.
+  # Returns all subnets that are currently in use
   #
-  # @param  [Integer] index    Interface index. Should be in [0, 9]
-  # @param  [String]  subnet   Subnet belonging to this adapter
-  # @param  [String]  netmask  Netmask for subnet
+  # @return [Array]
+  def get_used_subnets
+    used_subnets = Set.new([])
+
+    IO.readlines(@config_path).each do |line|
+      if line =~ /SUBNET (.*)$/
+        used_subnets << $1
+      end
+    end
+
+    used_subnets.to_a
+  end
+
+  # Adds the specified adapters to the networking config
+  #
+  # @param  [Hash]  adapters  Adapters to add.
+  #                           [adapter] => Adapter id in [0, 99]
+  #                             :subnet  =>
+  #                             :netmask =>
   #
   # @return nil
-  def add_adapter(index, subnet, netmask)
+  def add_adapters(adapters)
     atomically_replace_file(@config_path) do |tmpfile|
-    # Copy over existing configuration
+      existing_adapters = Set.new([])
+
+      # Copy over existing configuration
       IO.readlines(@config_path).each do |line|
-        if line =~ /VNET_#{index}/
-          raise "Adapter #{index} already exists"
-        else
-          tmpfile.write(line)
+        if adapter = parse_adapter_id(line)
+          existing_adapters << adapter if adapters.has_key?(adapter)
         end
+        tmpfile.write(line)
       end
 
-      # Append our adapter
-      props = {
-        "DHCP" => "no",
-        "NAT"  => "yes",
-        "VIRTUAL_ADAPTER"  => "yes",
-        "HOSTONLY_NETMASK" => netmask,
-        "HOSTONLY_SUBNET"  => subnet,
-      }
-      tmpfile.write("# NALLOC_ADAPTER #{index}\n")
-      for k, v in props
-        tmpfile.write("answer VNET_#{index}_#{k} #{v}\n")
+      unless existing_adapters.empty?
+        errstr = "The following adapters already exist: " \
+                 + existing_adapters.to_a.join(", ")
+        raise errstr
+      end
+
+      # Append our adapters. We don't bother tagging the adapters with a
+      # comment because Fusion will remove them upon restart.
+      adapters.each do |adapter, net_props|
+        props = {
+          "DHCP" => "no",
+          "NAT"  => "yes",
+          "VIRTUAL_ADAPTER"  => "yes",
+          "HOSTONLY_NETMASK" => net_props[:netmask],
+          "HOSTONLY_SUBNET"  => net_props[:subnet],
+        }
+        for k, v in props
+          tmpfile.write("answer VNET_#{adapter}_#{k} #{v}\n")
+        end
       end
 
       nil
     end
   end
 
-  # Removes the adapter from the specified config. Cowardly refuses to
-  # remove any adapters not tagged as being added by nalloc.
+  # Removes the supplied adapters from the networking config.
   #
-  # @param  [Integer] index  Interface index.
+  # @param  Array  adapters  Adapters to remove
   #
-  # @return [TrueClass || FalseClass]  True if adapter was found, false if not
-  def remove_adapter(index)
+  # @return Hash             adapter => true  if adapter was removed
+  #                                  => false otherwise
+  def remove_adapters(adapters)
     atomically_replace_file(@config_path) do |tmpfile|
-      adapter_found  = false
+      adapters_found = adapters.inject({}) {|h, i| h[i] = false; h }
+      adapters = Set.new(adapters)
 
       IO.readlines(@config_path).each do |line|
-        case line
-        when /^answer VNET_#{index}/
-          adapter_found = true
-          next
-        else
-          tmpfile.write(line)
+        should_skip = false
+
+        if adapter = parse_adapter_id(line)
+          if adapters.include?(adapter)
+            should_skip = true
+            adapters_found[adapter] = true
+          end
         end
+
+        tmpfile.write(line) unless should_skip
       end
 
-      adapter_found
+      adapters_found
     end
   end
 
   private
+
+  def parse_adapter_id(line)
+    if line =~ /^answer VNET_(\d+)/
+      Integer($1)
+    else
+      nil
+    end
+  end
 
   # Yields an open temporary file that will be renamed to the supplied path
   # upon completion of the supplied block.

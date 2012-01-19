@@ -8,16 +8,17 @@ require 'optparse'
 require 'nalloc/fusion_support/networking_manipulator'
 
 networking_path = nil
+
 opt_parser = OptionParser.new do |op|
   op.banner = <<-EOT
-Usage: add-fusion-adapter [opts] [0-9] [subnet] [netmask]
+Usage: remove-fusion-adapters [opts] [adapter]+
 
-Installs a dedicated network adapter for nalloc.
+Uninstalls a network adapter added by 'add-fusion-adapter'
 
 Options:
 EOT
 
-  op.on("-n", "--net-config-path [PATH]", "Path to networking conf") do |path|
+  op.on("-c", "--config-path [PATH]", "Path to networking conf") do |path|
     networking_path = path
   end
 end
@@ -27,22 +28,18 @@ unless Process.uid == 0
 end
 
 opt_parser.parse!(ARGV)
-unless ARGV.length == 3
+unless ARGV.length > 0
   puts "ERROR: Incorrect number of arguments"
   puts opt_parser.help
   exit 1
 end
-adapter_index, subnet, netmask = ARGV
-
-unless adapter_index =~ /^[0-9]$/
-  abort "ERROR: Adapter index must be in [0, 9]"
-end
 
 begin
-  puts "Adding adapter #{adapter_index}"
+  puts "Removing adapters #{ARGV.join(', ')}"
   net_manip = Nalloc::FusionSupport::NetworkingManipulator.new(networking_path)
-  net_manip.add_adapter(adapter_index, subnet, netmask)
+  net_manip.remove_adapters(ARGV.map {|adapter| Integer(adapter) })
   puts "Done. Please restart Fusion."
 rescue => e
   abort "ERROR: #{e}"
 end
+

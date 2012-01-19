@@ -22,4 +22,5 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'trace'
   s.add_runtime_dependency 'json'
   s.add_runtime_dependency 'fog'
+  s.add_runtime_dependency 'highline'
 end

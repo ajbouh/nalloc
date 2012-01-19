@@ -26,7 +26,7 @@ In this case, --destroy is assumed.
 
 Options:"
 
-  opts.on("--driver DRIVER", ["virtual_box", "ec2"],
+  opts.on("--driver DRIVER", ["virtual_box", "ec2", "fusion"],
       "Specify driver to use for allocation") do |name|
     driver_name = name
   end
