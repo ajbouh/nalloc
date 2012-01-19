@@ -8,6 +8,8 @@ require Nalloc.libpath('nalloc/fusion_support/adapter_pool')
 require Nalloc.libpath('nalloc/node')
 
 class Nalloc::Driver::Fusion < Nalloc::Driver
+  # XXX - Better way of determining this
+  VMRUN_PATH        = "/Applications/VMware Fusion.app/Contents/Library/vmrun"
   CONFIG_DIR        = File.expand_path("~/.nalloc/fusion")
   DEFAULTS_PATH     = File.join(CONFIG_DIR, "defaults.json")
   ADAPTER_POOL_PATH = File.join(CONFIG_DIR, "adapter_pool")
@@ -328,7 +330,7 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
 
   def vmrun(*args)
     fullargs = ["-T", "fusion", args].flatten
-    command = ["vmrun", *fullargs, :err => :close, :in => :close]
+    command = [VMRUN_PATH, *fullargs, :err => :close, :in => :close]
     result = IO.popen(command, &:read)
     raise "vmrun operation failed: #{command.inspect}" unless $?.success?
 
