@@ -12,6 +12,50 @@ Contributors:
 
 * The Nalloc Authors
 
+Fusion support
+--------------
+Clusters allocated using the Fusion driver require both a vmx template and a
+vmdk. The vmx file provides a template configuration for each node in the
+cluster, while the vmdk provides the base disk image.
+
+**Vmdk Requirements**
+
+The base OS in the vmdk must have a root password and VMware tools installed.
+It is used for out-of-band access to each node before networking has
+been configured.
+
+**Vmx Template Requirements**
+
+See the sample template provided by nalloc in
+```templates/fusion/zygote.vmx.erb```.
+
+**Setup**
+
+Run ```rake fusion:setup```. You'll probably want to enter at least the vmdk
+path.
+
+**Teardown**
+
+Run ```rake fusion:teardown```. This will remove all traces of nalloc Fusion
+support from your system.
+
+**Node options for nalloc-init**
+
+Required:
+
+* root_pass - The root password for the node
+* username  - Name of the initial user
+* ssh_key_name - Private key name (or path to private key). The corresponding
+                 public key will be added to the authorized_keys file for
+                 username.
+
+Optional:
+
+* vmdk_path - Path to base vmdk to use. Note that the default vmdk specified
+              during setup will be used if none is provided.
+* vmx_template - Path to vmx_template. This will default to either the template
+                 specified during setup or the template provided with nalloc.
+
 License
 -------
 
