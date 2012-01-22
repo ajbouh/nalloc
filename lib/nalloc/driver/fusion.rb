@@ -74,11 +74,9 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
 
     Nalloc::Caution.attempt("Failed to reap cruft: allocating_nodes") { reap }
 
-    # Create dir to house the vms
+    # Create dir to house the vms, mkdir throws if cluster_dir exists
     cluster_dir = File.join(VM_STORE_PATH, cluster_id)
-    unless File.exist?(cluster_dir)
-      FileUtils.mkdir(cluster_dir)
-    end
+    FileUtils.mkdir(cluster_dir)
 
     adapter = @adapter_pool.acquire
     raise "Failed to allocate an adapter" unless adapter
