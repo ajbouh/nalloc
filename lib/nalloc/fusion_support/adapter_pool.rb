@@ -78,9 +78,10 @@ class Nalloc::FusionSupport::AdapterPool
   end
 
   def save_adapters(adapters)
-    File.open(@db_path, 'w+') do |f|
-      f.write(adapters.to_json)
-    end
+    tmpfile = Tempfile.new("nalloc_tmp_adapers")
+    tmpfile.write(adapters.to_json)
+    tmpfile.close
+    File.rename(tmpfile.path, @db_path)
 
     nil
   end
