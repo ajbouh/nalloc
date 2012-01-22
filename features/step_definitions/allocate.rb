@@ -10,7 +10,7 @@ Given /^the nodes:$/ do |table|
       @node_specs[name][:username] = username
     end
 
-    if root_pass = ENV['ROOT_PASS']
+    if root_pass = ENV['NALLOC_ROOT_PASS']
       @node_specs[name][:root_pass] = root_pass
     end
   end
