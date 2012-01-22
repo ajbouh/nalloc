@@ -23,7 +23,7 @@ require Nalloc.libpath('nalloc/fusion_support/adapter_pool')
 require Nalloc.libpath('nalloc/fusion_support/networking_manipulator')
 
 # Util scripts
-UTIL_PATH            = File.expand_path("util", File.dirname(__FILE__))
+UTIL_PATH            = Nalloc.path("util")
 ADD_ADAPTERS_PATH    = File.join(UTIL_PATH, "add-fusion-adapters")
 REMOVE_ADAPTERS_PATH = File.join(UTIL_PATH, "remove-fusion-adapters")
 ADAPTERS_PATH        = File.join(Nalloc::Driver::Fusion::CONFIG_DIR, "adapters.json")

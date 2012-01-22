@@ -15,8 +15,7 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
   ADAPTER_POOL_PATH = File.join(CONFIG_DIR, "adapter_pool")
   VM_STORE_PATH     = File.join(CONFIG_DIR, "vms")
 
-  TEMPLATE_DIR              = File.expand_path("../../../templates/fusion",
-                                               File.dirname(__FILE__))
+  TEMPLATE_DIR              = Nalloc.path("templates/fusion")
   VMX_TEMPLATE_PATH         = File.join(TEMPLATE_DIR, "zygote.vmx.erb")
   IFACES_TEMPLATE_PATH      = File.join(TEMPLATE_DIR, "interfaces.erb")
   RESOLV_CONF_TEMPLATE_PATH = File.join(TEMPLATE_DIR, "resolv.conf.erb")
