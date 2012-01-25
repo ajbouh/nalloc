@@ -39,18 +39,25 @@ task 'test:run' => 'cucumber'
 
 namespace 'fusion' do
   desc "Installs prerequisites for nalloc's fusion driver"
-  task 'setup' do
+  task 'setup', :num_adapters  do |task, args|
+    args.with_defaults(:num_adapters => 5)
+
     begin
       if File.exist?(Nalloc::Driver::Fusion::CONFIG_DIR)
         abort "It looks like you've already set up the fusion adapter"
       end
       FileUtils.mkdir_p(Nalloc::Driver::Fusion::VM_STORE_PATH)
 
+      num_adapters= Integer(args[:num_adapters])
+      unless (num_adapters > 0) && (num_adapters < 100)
+        abort "ERROR: num_adapters must be in [1, 99]"
+      end
+
       # XXX - Make this configurable and not collide with existing subnets
       puts "Allocating adapter pool"
       net_manip = Nalloc::FusionSupport::NetworkingManipulator.new
-      free_adapters = net_manip.get_free_adapters()[0, 5]
-      unless free_adapters.length == 5
+      free_adapters = net_manip.get_free_adapters()[0, num_adapters]
+      unless free_adapters.length == num_adapters
         abort "ERROR: Couldn't find enough free adapters"
       end
       to_add = []
