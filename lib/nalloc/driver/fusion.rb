@@ -4,7 +4,6 @@ require 'set'
 require 'tempfile'
 
 require Nalloc.libpath('nalloc/fusion_support/vmdk_parser')
-require Nalloc.libpath('nalloc/fusion_support/adapter_pool')
 require Nalloc.libpath('nalloc/node')
 
 class Nalloc::Driver::Fusion < Nalloc::Driver
@@ -12,7 +11,7 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
   VMRUN_PATH        = "/Applications/VMware Fusion.app/Contents/Library/vmrun"
   CONFIG_DIR        = File.expand_path("~/.nalloc/fusion")
   DEFAULTS_PATH     = File.join(CONFIG_DIR, "defaults.json")
-  ADAPTER_POOL_PATH = File.join(CONFIG_DIR, "adapter_pool")
+  ADAPTER_POOL_PATH = File.join(CONFIG_DIR, "adapters.json")
   VM_STORE_PATH     = File.join(CONFIG_DIR, "vms")
 
   TEMPLATE_DIR              = Nalloc.path("templates/fusion")
@@ -20,35 +19,42 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
   IFACES_TEMPLATE_PATH      = File.join(TEMPLATE_DIR, "interfaces.erb")
   RESOLV_CONF_TEMPLATE_PATH = File.join(TEMPLATE_DIR, "resolv.conf.erb")
 
-  def self.write_defaults(defaults)
-    File.open(DEFAULTS_PATH, 'w+') do |f|
-      f.write(defaults.to_json)
+  class << self
+    def save_adapters(adapters)
+      File.open(ADAPTER_POOL_PATH, 'w+') do |f|
+        f.write(adapters.to_json)
+      end
     end
 
-    nil
-  end
-
-  # Returns default options used during node allocation
-  #
-  # @return [Hash]  'vmdk_path'         => Path to base vmdk
-  #                 'vmx_template_path' => Path to vmx erb template
-  def self.defaults
-    unless @defaults
-      raw_defaults = File.read(DEFAULTS_PATH)
-      @defaults = JSON.parse(raw_defaults)
-      @defaults.freeze
+    def load_adapters
+      adapters = JSON.parse(File.read(ADAPTER_POOL_PATH))
     end
 
-    @defaults
-  end
+    def write_defaults(defaults)
+      File.open(DEFAULTS_PATH, 'w+') do |f|
+        f.write(defaults.to_json)
+      end
 
-  def self.default_on(specs, prop)
-    specs[prop] || self.defaults[prop.to_s]
-  end
+      nil
+    end
 
-  def initialize(opts={})
-    @adapter_pool = opts[:adapter_pool] || \
-                    Nalloc::FusionSupport::AdapterPool.new(ADAPTER_POOL_PATH)
+    # Returns default options used during node allocation
+    #
+    # @return [Hash]  'vmdk_path'         => Path to base vmdk
+    #                 'vmx_template_path' => Path to vmx erb template
+    def defaults
+      unless @defaults
+        raw_defaults = File.read(DEFAULTS_PATH)
+        @defaults = JSON.parse(raw_defaults)
+        @defaults.freeze
+      end
+
+      @defaults
+    end
+
+    def default_on(specs, prop)
+      specs[prop] || self.defaults[prop.to_s]
+    end
   end
 
   def name
@@ -78,19 +84,8 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
     cluster_dir = File.join(VM_STORE_PATH, cluster_id)
     FileUtils.mkdir(cluster_dir)
 
-    adapter = @adapter_pool.acquire
-    raise "Failed to allocate an adapter" unless adapter
-
-    # If we fail writing out the adapter #destroy_cluster won't be able
-    # to release it, hence the special case error handling here.
-    begin
-      adapter_path = File.join(VM_STORE_PATH, cluster_id, 'adapter.json')
-      File.open(adapter_path, 'w+') do |f|
-        f.write(adapter.to_json)
-      end
-    rescue
-      @adapter_pool.release(adapter)
-      raise
+    unless adapter = acquire_adapter
+      raise "Failed to allocate an adapter"
     end
 
     nodes    = {}
@@ -230,20 +225,6 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
   #
   # @return nil
   def reap
-    # Release adapters if possible
-    cluster_glob = File.join(VM_STORE_PATH, '*')
-    all_clusters = Set.new(Dir.glob(cluster_glob).map {|p| File.basename(p) })
-    act_clusters = Set.new(find_active_nodes().map {|n| n["cluster_id"] })
-    inact_clusters = all_clusters - act_clusters
-    inact_clusters.each do |cluster_id|
-      adapter_path = File.join(VM_STORE_PATH, cluster_id, 'adapter.json')
-      if File.exist?(adapter_path)
-        adapter = JSON.parse(File.read(adapter_path))
-        @adapter_pool.release(adapter)
-        FileUtils.rm(adapter_path)
-      end
-    end
-
     # Can't delete any vms until all vms are down. vmrun will fail claiming
     # that the vm is in use, regardless of whether or not it is powered on.
     unless vmrun("list") =~ /running VMs: 0$/
@@ -349,6 +330,43 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
     end
 
     nil
+  end
+
+  # Acquires an adapter, if available
+  #
+  # @return  [Hash]     Adapter on success.
+  #          NilClass   Nil otherwise.
+  def acquire_adapter
+    free_adapters = self.class.load_adapters()
+    processed_clusters = Set.new([])
+
+    find_active_nodes().each do |node|
+      # All nodes in a cluster share the same adapter
+      next if processed_clusters.include?(node["cluster_id"])
+      read_adapter_ids_from_vmx(node["identity"]).each do |adapter_id|
+        free_adapters.delete(adapter_id)
+      end
+      processed_clusters.add(node["cluster_id"])
+    end
+
+    free_adapters.values.first
+  end
+
+  # Returns the adapter ids used by the supplied vm
+  #
+  # @param  [String]  vmx_path
+  #
+  # @return [Array]   Adapter ids
+  def read_adapter_ids_from_vmx(vmx_path)
+    adapter_ids = Set.new([])
+
+    IO.readlines(vmx_path).each do |line|
+      if line =~ /\.vnet\s*=\s*"vmnet(\d+)"/
+        adapter_ids.add($1)
+      end
+    end
+
+    adapter_ids.to_a
   end
 
   # Returns all running nodes that have been allocated by nalloc

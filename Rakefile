@@ -19,14 +19,12 @@ require File.expand_path(
 
 require Nalloc.libpath('nalloc/driver')
 require Nalloc.libpath('nalloc/driver/fusion')
-require Nalloc.libpath('nalloc/fusion_support/adapter_pool')
 require Nalloc.libpath('nalloc/fusion_support/networking_manipulator')
 
 # Util scripts
 UTIL_PATH            = Nalloc.path("util")
 ADD_ADAPTERS_PATH    = File.join(UTIL_PATH, "add-fusion-adapters")
 REMOVE_ADAPTERS_PATH = File.join(UTIL_PATH, "remove-fusion-adapters")
-ADAPTERS_PATH        = File.join(Nalloc::Driver::Fusion::CONFIG_DIR, "adapters.json")
 
 task :default => 'test:run'
 task 'gem:release' => 'test:run'
@@ -54,26 +52,24 @@ namespace 'fusion' do
       end
 
       # XXX - Make this configurable and not collide with existing subnets
-      puts "Allocating adapter pool"
+      puts "Allocating adapter pool of size #{num_adapters}"
       net_manip = Nalloc::FusionSupport::NetworkingManipulator.new
       free_adapters = net_manip.get_free_adapters()[0, num_adapters]
       unless free_adapters.length == num_adapters
         abort "ERROR: Couldn't find enough free adapters"
       end
       to_add = []
-      pool_path = Nalloc::Driver::Fusion::ADAPTER_POOL_PATH
-      adapter_pool = Nalloc::FusionSupport::AdapterPool.new(pool_path)
+      adapters = {}
       free_adapters.each_with_index do |adapter_id, ii|
         to_add << [adapter_id, "10.20.#{30 + ii}.0", "255.255.255.0"]
-        adapter_pool.release("adapter_id" => adapter_id,
-                             "subnet"     => to_add[-1][1],
-                             "netmask"    => to_add[-1][2])
+        adapters[adapter_id] = {
+          "adapter_id" => adapter_id,
+          "subnet"     => to_add[-1][1],
+          "netmask"    => to_add[-1][2],
+        }
       end
       sh "sudo #{ADD_ADAPTERS_PATH} #{to_add.flatten.join(' ')}"
-      # Write out the adapters we're using so we can remove them during teardown
-      File.open(ADAPTERS_PATH, 'w+') do |f|
-        f.write(free_adapters.to_json)
-      end
+      Nalloc::Driver::Fusion.save_adapters(adapters)
 
       puts "Setting defaults"
       defaults = {}
@@ -124,10 +120,10 @@ namespace 'fusion' do
       abort
     end
 
-    if File.exist?(ADAPTERS_PATH)
-      adapters = JSON.parse(File.read(ADAPTERS_PATH))
+    if File.exist?(Nalloc::Driver::Fusion::ADAPTER_POOL_PATH)
+      adapter_ids = Nalloc::Driver::Fusion.load_adapters().keys
       puts "Removing dedicated nalloc adapters"
-      sh "sudo #{REMOVE_ADAPTERS_PATH} #{adapters.join(' ')}"
+      sh "sudo #{REMOVE_ADAPTERS_PATH} #{adapter_ids.join(' ')}"
     end
     puts
 
