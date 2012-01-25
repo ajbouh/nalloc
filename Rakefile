@@ -71,26 +71,6 @@ namespace 'fusion' do
       sh "sudo #{ADD_ADAPTERS_PATH} #{to_add.flatten.join(' ')}"
       Nalloc::Driver::Fusion.save_adapters(adapters)
 
-      puts "Setting defaults"
-      defaults = {}
-      ["vmdk_path", "vmx_template_path"].each do |path_opt|
-        ans = ask("Would you like to set a default for #{path_opt} (yes/no)?")
-        if ans == "yes"
-          name = path_opt.gsub("_path", '')
-          loop do
-            path = ask("Please enter the path for the #{name}: ")
-            real_path = File.expand_path(path)
-            if File.exist?(real_path)
-              defaults[path_opt] = real_path
-              break
-            else
-              puts "Sorry, #{real_path} doesn't appear to exist..."
-            end
-          end
-        end
-      end
-      Nalloc::Driver::Fusion.write_defaults(defaults)
-
       puts "Setup complete. You'll need to restart fusion before the network"\
            + " adapter will be usable."
     rescue => e

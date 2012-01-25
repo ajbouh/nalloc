@@ -15,9 +15,11 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
   VM_STORE_PATH     = File.join(CONFIG_DIR, "vms")
 
   TEMPLATE_DIR              = Nalloc.path("templates/fusion")
-  VMX_TEMPLATE_PATH         = File.join(TEMPLATE_DIR, "zygote.vmx.erb")
+  DEFAULT_VMX_TEMPLATE_PATH = File.join(TEMPLATE_DIR, "zygote.vmx.erb")
   IFACES_TEMPLATE_PATH      = File.join(TEMPLATE_DIR, "interfaces.erb")
   RESOLV_CONF_TEMPLATE_PATH = File.join(TEMPLATE_DIR, "resolv.conf.erb")
+
+  DEFAULT_SSH_KEY = "id_rsa"
 
   class << self
     def save_adapters(adapters)
@@ -28,32 +30,6 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
 
     def load_adapters
       adapters = JSON.parse(File.read(ADAPTER_POOL_PATH))
-    end
-
-    def write_defaults(defaults)
-      File.open(DEFAULTS_PATH, 'w+') do |f|
-        f.write(defaults.to_json)
-      end
-
-      nil
-    end
-
-    # Returns default options used during node allocation
-    #
-    # @return [Hash]  'vmdk_path'         => Path to base vmdk
-    #                 'vmx_template_path' => Path to vmx erb template
-    def defaults
-      unless @defaults
-        raw_defaults = File.read(DEFAULTS_PATH)
-        @defaults = JSON.parse(raw_defaults)
-        @defaults.freeze
-      end
-
-      @defaults
-    end
-
-    def default_on(specs, prop)
-      specs[prop] || self.defaults[prop.to_s]
     end
   end
 
@@ -128,23 +104,16 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
   #
   # @return block    Finishes allocating node, blocks until completion.
   def start_allocating_node(cluster_id, name, specs, cluster_dir, props)
-    vmdk_path = self.class.default_on(specs, :vmdk_path)
-    raise "No vmdk_path specified for node #{name}" unless vmdk_path
+    vmdk_path =
+      File.expand_path(get_required_spec_option(name, specs, :vmdk_path))
+    root_pass = get_required_spec_option(name, specs, :root_pass)
+    user      = get_required_spec_option(name, specs, :username)
 
-    root_pass = self.class.default_on(specs, :root_pass)
-    raise "No root_pass specified for node #{name}" unless root_pass
-
-    user = specs[:username]
-    raise "No user given for node #{name}" unless specs[:username]
-
-    ssh_key_name = specs[:ssh_key_name]
-    raise "No ssh_key_name given for node #{name}" unless specs[:ssh_key_name]
-
+    ssh_key_name     = ENV['NALLOC_SSH_KEY'] || DEFAULT_SSH_KEY
     private_key_path = Nalloc::Node.find_ssh_key(ssh_key_name)
     public_key_path  = Nalloc::Node.find_ssh_key("#{ssh_key_name}.pub")
 
-    vmx_template_path = self.class.default_on(specs, :vmx_template_path)
-    vmx_template_path ||= VMX_TEMPLATE_PATH
+    vmx_template_path = specs[:vmx_template_path] || DEFAULT_VMX_TEMPLATE_PATH
 
     vmx_path = create_vm(vmx_template_path, cluster_dir,
                          :name          => name,
@@ -385,5 +354,12 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
     end
 
     vms
+  end
+
+  def get_required_spec_option(node_name, specs, key)
+    unless val = specs[key]
+      raise "No #{key} specified for node #{node_name}"
+    end
+    val
   end
 end

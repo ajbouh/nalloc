@@ -13,6 +13,10 @@ Given /^the nodes:$/ do |table|
     if root_pass = ENV['NALLOC_ROOT_PASS']
       @node_specs[name][:root_pass] = root_pass
     end
+
+    if vmdk_path = ENV['NALLOC_VMDK_PATH']
+      @node_specs[name][:vmdk_path] = vmdk_path
+    end
   end
 end
 
