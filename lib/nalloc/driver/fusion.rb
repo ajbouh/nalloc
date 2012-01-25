@@ -346,9 +346,8 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
 
     vmrun("list").split("\n").each do |line|
       next unless line =~ /^#{VM_STORE_PATH}/
-      parts = line.split(File::SEPARATOR)
       vms << {
-        "cluster_id" => parts[-3],
+        "cluster_id" => cluster_id_from_vmx_path(line),
         "identity"   => line,
       }
     end
@@ -361,5 +360,12 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
       raise "No #{key} specified for node #{node_name}"
     end
     val
+  end
+
+  def cluster_id_from_vmx_path(vmx_path)
+    # Canonical path is:
+    # <nalloc_root>/vms/<cluster_id>/<node_name>.vmwarevm/<node_name>.vmx
+    parts = vmx_path.split(File::SEPARATOR)
+    parts[-3]
   end
 end
