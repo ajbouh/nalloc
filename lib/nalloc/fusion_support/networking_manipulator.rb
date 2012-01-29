@@ -39,7 +39,7 @@ class Nalloc::FusionSupport::NetworkingManipulator
 
   # Returns all subnets that are currently in use
   #
-  # @return [Array]
+  # @return [Array]  Subnets in use (["255.255.255.0"], for example)
   def get_used_subnets
     used_subnets = Set.new([])
 
@@ -55,10 +55,10 @@ class Nalloc::FusionSupport::NetworkingManipulator
   # Adds the specified adapters to the networking config
   #
   # @param  [Hash]  adapters  Adapters to add.
-  #                           [adapter] => Adapter id in [0, 99]
-  #                             :subnet  =>
-  #                             :netmask =>
-  #
+  #                           adapter_id => {
+  #                             :subnet  => [String]
+  #                             :netmask => [String]
+  #                           }
   # @return nil
   def add_adapters(adapters)
     atomically_replace_file(@config_path) do |tmpfile|
@@ -97,12 +97,13 @@ class Nalloc::FusionSupport::NetworkingManipulator
     end
   end
 
-  # Removes the supplied adapters from the networking config.
+  # Removes the supplied adapters from the networking config. Note that this
+  # will also remove adapters that we didn't add, so be careful.
   #
-  # @param  Array  adapters  Adapters to remove
+  # @param  Array  adapters  Adapter ids to remove
   #
   # @return Hash             adapter => true  if adapter was removed
-  #                                  => false otherwise
+  #                                  => false if the adapter wasn't present
   def remove_adapters(adapters)
     atomically_replace_file(@config_path) do |tmpfile|
       adapters_found = adapters.inject({}) {|h, i| h[i] = false; h }
