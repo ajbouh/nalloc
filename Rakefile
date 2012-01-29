@@ -54,7 +54,7 @@ namespace 'fusion' do
       # XXX - Make this configurable and not collide with existing subnets
       puts "Allocating adapter pool of size #{num_adapters}"
       net_manip = Nalloc::FusionSupport::NetworkingManipulator.new
-      free_adapters = net_manip.get_free_adapters()[0, num_adapters]
+      free_adapters = net_manip.read_free_adapters()[0, num_adapters]
       unless free_adapters.length == num_adapters
         abort "ERROR: Couldn't find enough free adapters"
       end

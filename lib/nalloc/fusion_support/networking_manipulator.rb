@@ -25,7 +25,7 @@ class Nalloc::FusionSupport::NetworkingManipulator
   # Returns all adapters that are not currently in use
   #
   # @return [Array]  Adapter ids
-  def get_free_adapters
+  def read_free_adapters
     free_adapters = ALL_ADAPTERS.dup
 
     IO.readlines(@config_path).each do |line|
@@ -35,21 +35,6 @@ class Nalloc::FusionSupport::NetworkingManipulator
     end
 
     free_adapters.to_a.sort
-  end
-
-  # Returns all subnets that are currently in use
-  #
-  # @return [Array]  Subnets in use (["255.255.255.0"], for example)
-  def get_used_subnets
-    used_subnets = Set.new([])
-
-    IO.readlines(@config_path).each do |line|
-      if line =~ /SUBNET (.*)$/
-        used_subnets << $1
-      end
-    end
-
-    used_subnets.to_a
   end
 
   # Adds the specified adapters to the networking config
