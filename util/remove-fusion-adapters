@@ -1,6 +1,9 @@
 #!/usr/bin/env ruby
 #`-*- mode: ruby; -*-
-
+#
+# This is a standalone utility used to remove adapters from the networking
+# config file used by Fusion. It is currently used during `rake
+# fusion:teardown` to remove the adapters used by nalloc's fusion driver.
 $LOAD_PATH.unshift(File.expand_path("../lib", File.dirname(__FILE__)))
 
 require 'optparse'

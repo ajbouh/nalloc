@@ -1,6 +1,9 @@
 #!/usr/bin/env ruby
 #`-*- mode: ruby; -*-
-
+#
+# This is a standalone utility that can be used to add new adapters to Fusion's
+# networking config file. It is used during `rake fusion:setup` to create the
+# adapter pool used by the fusion driver.
 $LOAD_PATH.unshift(File.expand_path("../lib", File.dirname(__FILE__)))
 
 require 'optparse'
