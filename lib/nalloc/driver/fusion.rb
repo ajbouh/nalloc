@@ -3,7 +3,7 @@ require 'json'
 require 'set'
 require 'tempfile'
 
-require Nalloc.libpath('nalloc/fusion_support/vmdk_parser')
+require Nalloc.libpath('nalloc/fusion_support/vmdk')
 require Nalloc.libpath('nalloc/node')
 
 class Nalloc::Driver::Fusion < Nalloc::Driver
@@ -115,11 +115,10 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
 
     vmx_template_path = specs[:vmx_template_path] || DEFAULT_VMX_TEMPLATE_PATH
 
-    vmx_path = create_vm(vmx_template_path, cluster_dir,
-                         :name          => name,
-                         :vmdk_path     => vmdk_path,
-                         :vmnet_adapter => "vmnet#{props[:adapter]}",
-                         :memsize_MB    => specs[:memsize_MB])
+    vmx_path = create_vm(vmx_template_path, cluster_dir, name, vmdk_path,
+                         "vmnet#{props[:adapter]}",
+                         :memsize_MB => specs[:memsize_MB],
+                         :guest_os   => specs[:guest_os])
 
     vmrun("start", vmx_path, "nogui")
 
@@ -213,49 +212,42 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
     nil
   end
 
-  # Creates the vm specifed by *vm_props*.
+  # Creates the specified vm.
   #
   # NB: Fusion doesn't explicitly support cloning of vms. We approximate
   # the process using a method similar to the one detailed at
   # http://communities.vmware.com/docs/DOC-5611
   #
-  # @param  [String]  vmx_template_path  Path to the source vmx template
+  # @Param  [String]  vmx_template_path  Path to the source vmx template
   # @param  [String]  vm_store_path      Directory that will house the vm.
-  # @param  [Hash]    vm_props           VM properties. Will be passed to vmx
-  #                                      template.
+  # @param  [String]  vm_name            The vm name.
+  # @param  [String]  vmdk_path          Path to base vmdk.
+  # @param  [String]  vmnet_adapter      Network adapter to use (i.e. vmnet0)
+  # @param  [Hash]    opts               Optional VM properties.
   #
-  # @option vm_props  [String]  :name           Required. The vm name.
-  # @option vm_props  [String]  :vmdk_path      Required. Path to base vmdk.
-  # @option vm_props  [String]  :vmnet_adapter  Required. vmnet0 for example.
-  # @option vm_props  [Integer] :memsize_MB     Optional. Ram allocated to vm.
-  # @option vm_props  [String]  :guest_os       Optional. VMware specific guest
-  #                                             os tag.
-  # @return [String]                     Path to newly created vmx file.
-  def create_vm(vmx_template_path, vm_store_path, vm_props)
-    vm_dir = File.join(vm_store_path, "#{vm_props[:name]}.vmwarevm")
-
+  # @option opts      [Integer] :memsize_MB  Ram allocated to vm.
+  # @option opts      [String]  :guest_os    VMware specific guest os tag.
+  #
+  # @return [String]  Path to newly created vmx file.
+  def create_vm(vmx_template_path, vm_store_path, vm_name, vmdk_path,
+                vmnet_adapter, opts)
+    vm_dir = File.join(vm_store_path, "#{vm_name}.vmwarevm")
     created_vm_dir = FileUtils.mkdir(vm_dir)
 
-    # Rewrite the vmdk such that each extent is marked read-only and its
-    # filename is an absolute path pointing to the correct zygote extent.
-    vmdk_dir = File.dirname(vm_props[:vmdk_path])
-    vmdk = Nalloc::FusionSupport::VmdkParser.parse_file(vm_props[:vmdk_path])
-    vmdk["extents"].each do |extent|
-      extent["access"] = "rdonly"
-      unless extent["filename"].start_with?(File::SEPARATOR)
-        extent["filename"] = File.absolute_path(File.join(vmdk_dir,
-                                                          extent["filename"]))
-      end
-    end
-    dst_vmdk_path = File.join(vm_dir, "#{vm_props[:name]}.vmdk")
-    Nalloc::FusionSupport::VmdkParser.write_file(vmdk, dst_vmdk_path)
+    vmx_template_props = {
+      :name          => vm_name,
+      :vmnet_adapter => vmnet_adapter,
+      :vmdk_path     => vmdk_path,
+      :memsize_MB    => opts[:memsize_MB],
+      :guest_os      => opts[:guest_os],
+    }
 
     # Write out the vmx file for the vm
-    dst_vmx_path = File.join(vm_dir, "#{vm_props[:name]}.vmx")
-    write_template(vmx_template_path, dst_vmx_path, vm_props)
+    dst_vmx_path = File.join(vm_dir, "#{vm_name}.vmx")
+    write_template(vmx_template_path, dst_vmx_path, vmx_template_props)
 
     # Finally snapshot the cloned vm. This will force any writes to be
-    # performed against the local linked disk instead of the zygote's disk.
+    # performed against the local linked disk instead of the base disk.
     vmrun("snapshot", dst_vmx_path, "base")
 
     dst_vmx_path
