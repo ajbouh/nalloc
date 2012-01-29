@@ -137,7 +137,8 @@ class Nalloc::FusionSupport::NetworkingManipulator
   end
 
   # Yields an open temporary file that will be renamed to the supplied path
-  # upon completion of the supplied block.
+  # upon completion of the supplied block. Note that this will attempt to
+  # preserve ownership of the file, but won't throw if the operation fails.
   #
   # @param  [String]  path  Path to file being modified
   # @param  [Block]         The temporary file that will ultimately replace
@@ -145,28 +146,21 @@ class Nalloc::FusionSupport::NetworkingManipulator
   #
   # @return [Object]        Return value of the supplied block is used.
   def atomically_replace_file(path)
-    tmpfile = Tempfile.new("nalloc_tmp_#{File.basename(path)}")
+    Tempfile.open("nalloc_tmp_#{File.basename(path)}") do |tmpfile|
 
-    # Preserve ownership (if possible) and mode
-    stats = File.stat(path)
-    begin
-      tmpfile.chown(stats.uid, stats.gid)
-    rescue Errno::EPERM
-    end
-    tmpfile.chmod(stats.mode)
-
-    ret = yield tmpfile
-
-    File.rename(tmpfile.path, path)
-
-    ret
-  ensure
-    if tmpfile
-      tmpfile.close unless tmpfile.closed?
+      # Preserve ownership (if possible) and mode
+      stats = File.stat(path)
       begin
-        tmpfile.unlink
-      rescue
+        tmpfile.chown(stats.uid, stats.gid)
+      rescue Errno::EPERM
       end
+      tmpfile.chmod(stats.mode)
+
+      ret = yield tmpfile
+
+      File.rename(tmpfile.path, path)
+
+      ret
     end
   end
 
