@@ -6,10 +6,13 @@ module Nalloc
   end
 end
 
-# Utility class for munging the networking file used by fusion. This file
-# in undocumented, so we're careful to only manipulate the subset that we
-# understand (this has the added benefit of making this relatively
-# future-proof).
+# Utility class for munging the networking file used by fusion. The format of
+# this file is undocumented, so we're careful to only manipulate the subset
+# that we understand (this has the added benefit of making this relatively
+# future-proof). Our current understanding of the format is:
+#   - First line is "VERSION=1,0"
+#   - Subsequent lines are of the form
+#     "answer VNET_<ADAPTER_ID>_<PROPERTY_NAME> <VALUE>"
 class Nalloc::FusionSupport::NetworkingManipulator
   DEFAULT_NETWORKING_PATH = "/Library/Preferences/VMware Fusion/networking"
   ALL_ADAPTERS = 0.upto(99).to_a
