@@ -3,7 +3,6 @@ require 'json'
 require 'set'
 require 'tempfile'
 
-require Nalloc.libpath('nalloc/fusion_support/vmdk')
 require Nalloc.libpath('nalloc/node')
 
 class Nalloc::Driver::Fusion < Nalloc::Driver
@@ -136,12 +135,12 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
                     :mode => "0755")
 
       # Make sure .ssh exists and has correct permissions
-      vmrun("-gu", "root", "-gp", root_pass, "runProgramInGuest", vmx_path,
-            "/bin/mkdir", "-p", "/home/#{user}/.ssh")
-      vmrun("-gu", "root", "-gp", root_pass, "runProgramInGuest", vmx_path,
-            "/bin/chown", "#{user}:#{user}", "/home/#{user}/.ssh")
-      vmrun("-gu", "root", "-gp", root_pass, "runProgramInGuest", vmx_path,
-            "/bin/chmod", "0700", "/home/#{user}/.ssh")
+      gr = make_guestrunner(root_pass, vmx_path)
+      ssh_dir = "/home/#{user}/.ssh"
+      gr.call("/bin/mkdir", "-p", ssh_dir)
+      set_file_permissions_in_guest(root_pass, vmx_path, ssh_dir,
+                                    :owner => user,
+                                    :mode  => "0700")
 
       # Set authorized keys for user
       guest_auth_keys_path = "/home/#{user}/.ssh/authorized_keys"
@@ -150,8 +149,7 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
                     :mode  => "0600")
 
       # Bring up networking
-      vmrun("-gu", "root", "-gp", root_pass, "runProgramInGuest", vmx_path,
-            "/etc/init.d/networking", "restart")
+      gr.call("/etc/init.d/networking", "restart")
 
       { "identity"          => vmx_path,
         "public_ip_address" => props[:ipaddr],
@@ -276,18 +274,29 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
     result
   end
 
+  def make_guestrunner(root_pass, vmx_path)
+    lambda do |*command|
+      vmrun("-gu", "root", "-gp", root_pass,
+            "runProgramInGuest", vmx_path, *command)
+    end
+  end
+
   def copy_to_guest(root_pass, vmx_path, src_path, dst_path, opts={})
     vmrun("-gu", "root", "-gp", root_pass, "CopyFileFromHostToGuest",
           vmx_path, src_path, dst_path)
+    set_file_permissions_in_guest(root_pass, vmx_path, dst_path, opts)
+    nil
+  end
+
+  def set_file_permissions_in_guest(root_pass, vmx_path, target, opts={})
+    gr = make_guestrunner(root_pass, vmx_path)
 
     if owner = opts[:owner]
-      vmrun("-gu", "root", "-gp", root_pass, "runProgramInGuest", vmx_path,
-            "/bin/chown", "#{owner}:#{owner}", dst_path)
+      gr.call("/bin/chown", "#{owner}:#{owner}", target)
     end
 
     if mode = opts[:mode]
-      vmrun("-gu", "root", "-gp", root_pass, "runProgramInGuest", vmx_path,
-            "/bin/chmod", mode, dst_path)
+      gr.call("/bin/chmod", mode, target)
     end
 
     nil
