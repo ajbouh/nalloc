@@ -13,6 +13,9 @@ end
 #   - First line is "VERSION=1,0"
 #   - Subsequent lines are of the form
 #     "answer VNET_<ADAPTER_ID>_<PROPERTY_NAME> <VALUE>"
+#
+# NB: All methods in this class touch disk and either read or rewrite the
+#     underlying networking config file.
 class Nalloc::FusionSupport::NetworkingManipulator
   DEFAULT_NETWORKING_PATH = "/Library/Preferences/VMware Fusion/networking"
   ALL_ADAPTERS = 0.upto(99).to_a
