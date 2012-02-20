@@ -59,7 +59,10 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
     FileUtils.mkdir(cluster_dir)
 
     unless adapter = acquire_adapter
-      raise "Failed to allocate an adapter"
+      errmsg = "Failed to allocate an adapter. Please destroy some existing" \
+               + " clusters or increase your adapter pool using "            \
+               + " 'util/add-fusion-adapters'."
+      raise errmsg
     end
 
     nodes    = {}
