@@ -9,7 +9,6 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
   # XXX - Better way of determining this
   VMRUN_PATH        = "/Applications/VMware Fusion.app/Contents/Library/vmrun"
   CONFIG_DIR        = File.expand_path("~/.nalloc/fusion")
-  DEFAULTS_PATH     = File.join(CONFIG_DIR, "defaults.json")
   ADAPTER_POOL_PATH = File.join(CONFIG_DIR, "adapters.json")
   VM_STORE_PATH     = File.join(CONFIG_DIR, "vms")
 
