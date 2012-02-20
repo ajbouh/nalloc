@@ -6,6 +6,22 @@ require 'tempfile'
 require Nalloc.libpath('nalloc/node')
 
 class Nalloc::Driver::Fusion < Nalloc::Driver
+  # The following terms are used frequently throughout the Fusion driver and
+  # are defined below for clarity.
+  #
+  #    vmx template - A vmx file is a text file used by fusion that specifies
+  #                   hardware properties of a virtual machine. It includes
+  #                   things like amount of ram, number of disks, etc. A
+  #                   vmx template is a partial representation of a vmx file
+  #                   that may be completed by supplying specific template
+  #                   parameters.
+  #            vmdk - A vmdk specifies a virtual disk used by a vm. The vmx
+  #                   file for a virtual machine will reference one or more
+  #                   vmdks.
+  #   vmnet adapter - A vmnet adapter refers to a virtualized network adapter
+  #                   that is running on the host machine and can be used
+  #                   to provide network connectivity to a virtual machine.
+
   # XXX - Better way of determining this
   VMRUN_PATH        = "/Applications/VMware Fusion.app/Contents/Library/vmrun"
   CONFIG_DIR        = File.expand_path("~/.nalloc/fusion")
