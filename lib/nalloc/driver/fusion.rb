@@ -104,7 +104,7 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
   # @return block    Finishes allocating node, blocks until completion.
   def start_allocating_node(cluster_id, name, specs, cluster_dir, props)
     vmdk_path =
-      File.expand_path(get_required_spec_option(name, specs, :vmdk_path))
+        File.expand_path(get_required_spec_option(name, specs, :vmdk_path))
     root_pass = get_required_spec_option(name, specs, :root_pass)
     user      = get_required_spec_option(name, specs, :username)
 
