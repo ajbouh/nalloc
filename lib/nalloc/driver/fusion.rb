@@ -125,16 +125,12 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
 
     lambda do
       # Set up network interface
-      ifaces = Tempfile.new("nalloc_ifaces")
-      write_template(IFACES_TEMPLATE_PATH, ifaces.path, props)
-      copy_to_guest(root_pass, vmx_path, ifaces.path, "/etc/network/interfaces",
-                    :mode => "0755")
+      render_template_in_guest(root_pass, vmx_path, IFACES_TEMPLATE_PATH,
+                               props, "/etc/network/interfaces")
 
       # Set up DNS
-      resolv_conf = Tempfile.new("nalloc_resolv_conf")
-      write_template(RESOLV_CONF_TEMPLATE_PATH, resolv_conf.path, props)
-      copy_to_guest(root_pass, vmx_path, resolv_conf.path, "/etc/resolv.conf",
-                    :mode => "0755")
+      render_template_in_guest(root_pass, vmx_path, RESOLV_CONF_TEMPLATE_PATH,
+                               props, "/etc/resolv.conf")
 
       # Make sure .ssh exists and has correct permissions
       gr = make_guestrunner(root_pass, vmx_path)
@@ -281,6 +277,17 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
       vmrun("-gu", "root", "-gp", root_pass,
             "runProgramInGuest", vmx_path, *command)
     end
+  end
+
+  def render_template_in_guest(root_pass, vmx_path, template_path,
+                               template_props, guest_path)
+    tmpfile = Tempfile.new(File.basename(template_path))
+    write_template(template_path, tmpfile.path, template_props)
+    copy_to_guest(root_pass, vmx_path, tmpfile.path, guest_path,
+                  :mode => "0755")
+  ensure
+    tmpfile.close
+    tmpfile.unlink
   end
 
   def copy_to_guest(root_pass, vmx_path, src_path, dst_path, opts={})
