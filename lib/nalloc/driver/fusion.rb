@@ -216,7 +216,7 @@ class Nalloc::Driver::Fusion < Nalloc::Driver
   # the process using a method similar to the one detailed at
   # http://communities.vmware.com/docs/DOC-5611
   #
-  # @Param  [String]  vmx_template_path  Path to the source vmx template
+  # @param  [String]  vmx_template_path  Path to the source vmx template
   # @param  [String]  vm_store_path      Directory that will house the vm.
   # @param  [String]  vm_name            The vm name.
   # @param  [String]  vmdk_path          Path to base vmdk.
