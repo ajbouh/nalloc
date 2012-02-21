@@ -18,7 +18,7 @@ end
 #     underlying networking config file.
 class Nalloc::FusionSupport::NetworkingManipulator
   DEFAULT_NETWORKING_PATH = "/Library/Preferences/VMware Fusion/networking"
-  ALL_ADAPTERS = 0.upto(99).to_a
+  ALL_ADAPTERS = 1.upto(99).to_a
 
   # @param  [String]  path  Path to the networking config
   def initialize(path=nil)
