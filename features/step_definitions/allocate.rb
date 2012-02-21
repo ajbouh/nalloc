@@ -6,6 +6,17 @@ Given /^the nodes:$/ do |table|
       :ssh_key_name => Nalloc.path('keys', 'id_cucumber'),
       :bootstrap_command => @node_bootstrap_command
     }
+    if username = ENV['NALLOC_USER']
+      @node_specs[name][:username] = username
+    end
+
+    if root_pass = ENV['NALLOC_ROOT_PASS']
+      @node_specs[name][:root_pass] = root_pass
+    end
+
+    if vmdk_path = ENV['NALLOC_VMDK_PATH']
+      @node_specs[name][:vmdk_path] = vmdk_path
+    end
   end
 end
 

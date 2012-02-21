@@ -1,0 +1,58 @@
+#!/usr/bin/env ruby
+#`-*- mode: ruby; -*-
+#
+# This is a standalone utility that can be used to add new adapters to Fusion's
+# networking config file. It is used during `rake fusion:setup` to create the
+# adapter pool used by the fusion driver.
+$LOAD_PATH.unshift(File.expand_path("../lib", File.dirname(__FILE__)))
+
+require 'optparse'
+
+require 'nalloc/fusion_support/networking_manipulator'
+
+networking_path = nil
+opt_parser = OptionParser.new do |op|
+  op.banner = <<-EOT
+Usage: add-fusion-adapters [opts] [[0-99] [subnet] [netmask]]+
+
+Installs a dedicated network adapter for nalloc.
+
+Options:
+EOT
+
+  op.on("-c", "--config-path [PATH]", "Path to networking conf") do |path|
+    networking_path = path
+  end
+end
+
+unless Process.uid == 0
+  abort "ERROR: You must be root"
+end
+
+opt_parser.parse!(ARGV)
+unless (ARGV.length > 0) && ((ARGV.length % 3) == 0)
+  puts "ERROR: Incorrect number of arguments"
+  puts opt_parser.help
+  exit 1
+end
+
+adapters = {}
+ii = 0
+while ii < ARGV.length
+  adapter = Integer(ARGV[ii])
+  raise "Adapters must be in [0, 99]" unless (0..99).include?(adapter)
+  adapters[adapter] = {
+    :subnet  => ARGV[ii + 1],
+    :netmask => ARGV[ii + 2],
+  }
+  ii += 3
+end
+
+begin
+  puts "Adding adapter(s) #{adapters.keys.join(', ')}"
+  net_manip = Nalloc::FusionSupport::NetworkingManipulator.new(networking_path)
+  net_manip.add_adapters(adapters)
+  puts "Done. Please restart Fusion."
+rescue => e
+  abort "ERROR: #{e}"
+end
